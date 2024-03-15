@@ -172,6 +172,17 @@ class BufferPoolManager {
    */
   auto DeletePage(page_id_t page_id) -> bool;
 
+  /**
+   * @brief
+   * 找到一个全新的页帧，并且返回。这个函数会先查看空闲链表，然后再进行驱逐已有页。如果没有能返回的页帧，则返回false。找到后会负责将
+   * 页帧清除元数据，如果页面是脏页，还负责将页面写入到内存中。
+   *
+   * @param[out] frame_id, the frame id of the available frame
+   * @return false if no frame can be used, true if find a available frame
+   *
+   * **/
+  auto GetNewFrameId(frame_id_t *frame_id) -> bool;
+
  private:
   /** Number of pages in the buffer pool. */
   const size_t pool_size_;
@@ -181,7 +192,7 @@ class BufferPoolManager {
   /** Array of buffer pool pages. */
   Page *pages_;
   /** Pointer to the disk sheduler. */
-  std::unique_ptr<DiskScheduler> disk_scheduler_ __attribute__((__unused__));
+  std::unique_ptr<DiskScheduler> disk_scheduler_;
   /** Pointer to the log manager. Please ignore this for P1. */
   LogManager *log_manager_ __attribute__((__unused__));
   /** Page table for keeping track of buffer pool pages. */
@@ -191,7 +202,11 @@ class BufferPoolManager {
   /** List of free frames that don't have any pages on them. */
   std::list<frame_id_t> free_list_;
   /** This latch protects shared data structures. We recommend updating this comment to describe what it protects. */
-  std::mutex latch_;
+  // 保护page_table_
+  std::shared_mutex latch_page_table_;
+  // 保护free_list
+  std::shared_mutex latch_free_list_;
+  std::shared_mutex latch_;
 
   /**
    * @brief Allocate a page on disk. Caller should acquire the latch before calling this function.
