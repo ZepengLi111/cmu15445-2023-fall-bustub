@@ -197,6 +197,9 @@ auto Type::CompareGreaterThanEquals(const Value &left __attribute__((unused)),
 
 // Other mathematical functions
 auto Type::Add(const Value &left __attribute__((unused)), const Value &right __attribute__((unused))) const -> Value {
+  //  if (left.GetTypeId() == INTEGER && right.GetTypeId() == INTEGER) {
+  //    return {INTEGER, left.value_.integer_ + right.value_.integer_};
+  //  }
   throw NotImplementedException("Add not implemented");
 }
 

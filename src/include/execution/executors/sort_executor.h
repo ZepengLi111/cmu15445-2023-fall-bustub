@@ -52,5 +52,43 @@ class SortExecutor : public AbstractExecutor {
  private:
   /** The sort plan node to be executed */
   const SortPlanNode *plan_;
+  std::vector<std::pair<Tuple, RID>> tuples_;
+  std::unique_ptr<AbstractExecutor> child_executor_;
+  std::vector<std::pair<Tuple, RID>>::iterator it_;
 };
+
+class CompareTuple {
+ public:
+  CompareTuple(const std::vector<std::pair<OrderByType, AbstractExpressionRef>> *order_bys, const Schema *schema) {
+    order_bys_ = order_bys;
+    schema_ = schema;
+  }
+
+  const std::vector<std::pair<OrderByType, AbstractExpressionRef>> *order_bys_;
+  const Schema *schema_;
+
+  auto operator()(std::pair<Tuple, RID> &a, std::pair<Tuple, RID> &b) const -> bool {
+    for (const auto &order_by : (*order_bys_)) {
+      auto value_a = order_by.second->Evaluate(&(a.first), *schema_);
+      auto value_b = order_by.second->Evaluate(&(b.first), *schema_);
+      if (order_by.first == OrderByType::DESC) {
+        if (value_a.CompareGreaterThan(value_b) == CmpBool::CmpTrue) {
+          return true;
+        }
+        if (value_a.CompareLessThan(value_b) == CmpBool::CmpTrue) {
+          return false;
+        }
+      } else if (order_by.first == OrderByType::ASC || order_by.first == OrderByType::DEFAULT) {
+        if (value_a.CompareGreaterThan(value_b) == CmpBool::CmpTrue) {
+          return false;
+        }
+        if (value_a.CompareLessThan(value_b) == CmpBool::CmpTrue) {
+          return true;
+        }
+      }
+    }
+    return true;
+  }
+};
+
 }  // namespace bustub

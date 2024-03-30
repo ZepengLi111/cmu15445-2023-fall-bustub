@@ -353,6 +353,7 @@ set(P3_FILES
         "src/optimizer/seqscan_as_indexscan.cpp"
         "src/common/bustub_ddl.cpp"
         "src/include/execution/plans/topn_per_group_plan.h"
+        "src/include/execution/plans/hash_join_plan.h"
         ${P2_FILES}
 )
 
