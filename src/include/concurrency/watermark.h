@@ -1,5 +1,6 @@
 #pragma once
 
+#include <queue>
 #include <unordered_map>
 
 #include "concurrency/transaction.h"
@@ -35,6 +36,7 @@ class Watermark {
   timestamp_t watermark_;
 
   std::unordered_map<timestamp_t, int> current_reads_;
+  std::priority_queue<timestamp_t, std::vector<timestamp_t>, std::greater<>> current_reads_heap_;
 };
 
 };  // namespace bustub

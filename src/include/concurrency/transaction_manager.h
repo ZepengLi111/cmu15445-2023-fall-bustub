@@ -25,6 +25,7 @@
 #include "common/config.h"
 #include "concurrency/transaction.h"
 #include "concurrency/watermark.h"
+#include "execution/execution_common.h"
 #include "recovery/log_manager.h"
 #include "storage/table/tuple.h"
 

@@ -18,36 +18,70 @@ namespace bustub {
 
 DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx), plan_(plan), child_executor_(std::move(child_executor)) {}
+    : AbstractExecutor(exec_ctx), plan_(plan), child_executor_(std::move(child_executor)) {
+  table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid());
+  index_infos_ = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
+  count_ = 0;
+}
 
 void DeleteExecutor::Init() {
   count_ = 0;
   child_executor_->Init();
-  table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetTableOid());
-  index_infos_ = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
 }
 
 auto DeleteExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (is_finished_) {
     return false;
   }
-  Tuple temp_tuple{};
-  RID temp_rid;
-  auto status = child_executor_->Next(&temp_tuple, &temp_rid);
+  Tuple old_tuple{};
+  RID old_rid;
+  auto status = child_executor_->Next(&old_tuple, &old_rid);
+
   is_finished_ = true;
   while (status) {
-    auto meta = table_info_->table_->GetTupleMeta(temp_rid);
-    meta.is_deleted_ = true;
-    table_info_->table_->UpdateTupleMeta(meta, temp_rid);
+    bool self_modify = CheckSelfModify(table_info_->table_->GetTupleMeta(old_rid), exec_ctx_->GetTransaction());
+    bool ww_conflict = CheckWWConflict(table_info_->table_->GetTupleMeta(old_rid), exec_ctx_->GetTransaction());
 
-    for (auto *index_info : index_infos_) {
-      index_info->index_->DeleteEntry(
-          temp_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, index_info->index_->GetKeyAttrs()),
-          temp_rid, exec_ctx_->GetTransaction());
+    if (ww_conflict) {
+      // 写写冲突
+      exec_ctx_->GetTransaction()->SetTainted();
+      //      exec_ctx_->GetTransactionManager()->Abort(exec_ctx_->GetTransaction());
+      throw ExecutionException("delete ww conflict");
     }
-    status = child_executor_->Next(&temp_tuple, &temp_rid);
+
+    auto new_meta = TupleMeta{exec_ctx_->GetTransaction()->GetTransactionTempTs(), true};
+    if (table_info_->table_->GetTupleMeta(old_rid).is_deleted_) {
+      // 已经删除过了，不能再被删除一遍
+      // TO DO 可能需要throw Exception
+      status = child_executor_->Next(&old_tuple, &old_rid);
+      continue;
+    }
+
+    if (self_modify) {
+      // 自我修改
+      // TO DO 如果是自己insert并且delete，是否需要从write set中删掉呢
+      auto undo_link = exec_ctx_->GetTransactionManager()->GetUndoLink(old_rid);
+      if (undo_link.has_value() && undo_link.value().IsValid()) {
+        auto new_undo_log = UpdateOldUndoLog(exec_ctx_->GetTransaction()->GetUndoLog(undo_link->prev_log_idx_),
+                                             old_tuple, {}, &child_executor_->GetOutputSchema(), false, true);
+        exec_ctx_->GetTransaction()->ModifyUndoLog(undo_link->prev_log_idx_, new_undo_log);
+      }
+      //      new_meta.ts_ = 0;
+    } else {
+      auto undo_log = GenerateUndoLog(old_tuple, {}, &child_executor_->GetOutputSchema(), false, true,
+                                      table_info_->table_->GetTupleMeta(old_rid).ts_);
+      // TO DO check
+      undo_log.prev_version_ = exec_ctx_->GetTransactionManager()->GetUndoLink(old_rid).value();
+      auto new_undo_link = exec_ctx_->GetTransaction()->AppendUndoLog(undo_log);
+      exec_ctx_->GetTransactionManager()->UpdateUndoLink(old_rid, new_undo_link);
+    }
+    table_info_->table_->UpdateTupleMeta(new_meta, old_rid);
+
+    exec_ctx_->GetTransaction()->AppendWriteSet(table_info_->oid_, old_rid);
+    status = child_executor_->Next(&old_tuple, &old_rid);
     count_++;
   }
+
   std::vector<Value> num_of_rows;
   num_of_rows.emplace_back(INTEGER, count_);
   *tuple = Tuple(num_of_rows, &GetOutputSchema());

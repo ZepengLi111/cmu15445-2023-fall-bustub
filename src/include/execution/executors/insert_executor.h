@@ -15,6 +15,7 @@
 #include <memory>
 #include <utility>
 
+#include "concurrency/transaction_manager.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/insert_plan.h"
@@ -60,6 +61,7 @@ class InsertExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> child_executor_;
   TableInfo *table_info_;
   std::vector<IndexInfo *> index_infos_;
+  IndexInfo *primary_key_index_ = nullptr;
   int count_ = 0;
   bool is_finished_ = false;
 };
