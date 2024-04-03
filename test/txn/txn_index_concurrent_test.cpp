@@ -96,7 +96,7 @@ TEST(TxnIndexTest, IndexConcurrentInsertTest) {  // NOLINT
   }
 }
 
-TEST(TxnIndexTest, DISABLED_IndexConcurrentUpdateTest) {  // NOLINT
+TEST(TxnIndexTest, IndexConcurrentUpdateTest) {  // NOLINT
   const auto generate_sql = [](int thread_id, int n) -> std::string {
     return fmt::format("UPDATE maintable SET b = b + {} WHERE a = {}", (1 << thread_id), n);
   };
@@ -123,20 +123,24 @@ TEST(TxnIndexTest, DISABLED_IndexConcurrentUpdateTest) {  // NOLINT
     EnsureIndexScan(*bustub);
     Execute(*bustub, "CREATE TABLE maintable(a int primary key, b int)");
     std::vector<std::thread> update_threads;
-    const int thread_cnt = 8;
-    const int number_cnt = 20;
+    const int thread_cnt = 16;
+    const int number_cnt = 40;
     Execute(*bustub, generate_insert_sql(number_cnt), false);
     TableHeapEntryNoMoreThan(*bustub, bustub->catalog_->GetTable("maintable"), number_cnt);
     update_threads.reserve(thread_cnt);
     std::map<int, std::vector<bool>> operation_result;
     std::mutex result_mutex;
     bool add_delete_insert = (n % 2 == 1);
+//    bool add_delete_insert = false;
     fmt::println(stderr, "trial {}: running with {} threads with {} rows, add_delete_insert={}", n + 1, thread_cnt,
                  number_cnt, add_delete_insert);
     global_disable_execution_exception_print.store(true);
     for (int thread = 0; thread < thread_cnt; thread++) {
       update_threads.emplace_back([add_delete_insert, &bustub, thread, generate_sql, generate_select_sql,
                                    generate_delete_sql, generate_txn_insert_sql, &result_mutex, &operation_result]() {
+        std::stringstream ss1;
+        ss1 << std::this_thread::get_id();
+//        fmt::println(stderr, "thread {} id is {}", thread, ss1.str());
         NoopWriter writer;
         std::vector<bool> result;
         result.reserve(number_cnt);
@@ -150,6 +154,11 @@ TEST(TxnIndexTest, DISABLED_IndexConcurrentUpdateTest) {  // NOLINT
           if (add_delete_insert) {
             StringVectorWriter data_writer;
             BUSTUB_ENSURE(bustub->ExecuteSqlTxn(generate_select_sql(i), data_writer, txn), "cannot retrieve data");
+//            if (data_writer.values_.size() != 1) {
+//              TxnMgrDbg("size wrong check", bustub->txn_manager_.get(), bustub->catalog_->GetTable("maintable"),
+//                        bustub->catalog_->GetTable("maintable")->table_.get());
+//              fmt::println(stderr, "**************** i: {}, size: {}", i, data_writer.values_.size());
+//            }
             BUSTUB_ENSURE(data_writer.values_.size() == 1, "more than 1 row fetched??");
             const auto b_val = std::stoi(data_writer.values_[0][0]);
             BUSTUB_ENSURE(bustub->ExecuteSqlTxn(generate_delete_sql(i), data_writer, txn), "cannot delete data");
@@ -157,6 +166,9 @@ TEST(TxnIndexTest, DISABLED_IndexConcurrentUpdateTest) {  // NOLINT
                           "cannot insert data");
           }
           BUSTUB_ENSURE(bustub->txn_manager_->Commit(txn), "cannot commit??");
+//          TxnMgrDbg("after update------------------------", bustub->txn_manager_.get(), bustub->catalog_->GetTable("maintable"),
+//                    bustub->catalog_->GetTable("maintable")->table_.get(), thread);
+//          fmt::println(stderr, "***** {} is fixed by {} //////", i, thread);
           result.push_back(true);
           std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
@@ -176,11 +188,14 @@ TEST(TxnIndexTest, DISABLED_IndexConcurrentUpdateTest) {  // NOLINT
       int winner = 0;
       for (int j = 0; j < thread_cnt; j++) {
         if (operation_result[j][i]) {
+//          fmt::println(stderr, "{} {}", i, j);
           winner += (1 << j);
         }
       }
       expected_rows.push_back({i, winner});
     }
+//    TxnMgrDbg("after update-----", bustub->txn_manager_.get(), bustub->catalog_->GetTable("maintable"),
+//                    bustub->catalog_->GetTable("maintable")->table_.get());
     auto query_txn = BeginTxn(*bustub, "query_txn");
     WithTxn(query_txn, QueryShowResult(*bustub, _var, _txn, "SELECT * FROM maintable", expected_rows));
     TableHeapEntryNoMoreThan(*bustub, bustub->catalog_->GetTable("maintable"), number_cnt);
@@ -192,7 +207,7 @@ TEST(TxnIndexTest, DISABLED_IndexConcurrentUpdateTest) {  // NOLINT
   }
 }
 
-TEST(TxnIndexTest, DISABLED_IndexConcurrentUpdateAbortTest) {  // NOLINT
+TEST(TxnIndexTest, IndexConcurrentUpdateAbortTest) {  // NOLINT
   const auto generate_sql = [](int n) -> std::string {
     return fmt::format("UPDATE maintable SET b = b + {} WHERE a = {}", 1, n);
   };

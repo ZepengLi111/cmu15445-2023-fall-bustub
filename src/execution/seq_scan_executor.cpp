@@ -71,19 +71,20 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       if (!reconstructed_tuple.has_value()) {
         continue;
       }
-      reconstructed_tuple->SetRid(rid1);
       temp_tuple = reconstructed_tuple.value();
     }
-
-
     if (filter_expr) {
       auto value = filter_expr->Evaluate(&temp_tuple, GetOutputSchema());
       if (value.IsNull() || !value.GetAs<bool>()) {
         continue;
       }
     }
+    temp_tuple.SetRid(rid1);
     *tuple = temp_tuple;
     *rid = temp_tuple.GetRid();
+    std::stringstream ss1;
+    ss1 << std::this_thread::get_id();
+//    fmt::println(stderr, "SEQ SCAN tid={} RID={}/{} RID={}/{}", ss1.str(), rid->GetPageId(), rid->GetSlotNum(), temp_tuple.GetRid().GetPageId(), temp_tuple.GetRid().GetPageId());
     return true;
   }
   return false;

@@ -15,6 +15,7 @@
 #include <memory>
 #include <utility>
 
+#include "execution/execution_common.h"
 #include "concurrency/transaction_manager.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"

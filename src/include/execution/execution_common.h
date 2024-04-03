@@ -3,12 +3,37 @@
 #include <string>
 #include <vector>
 
+#include "concurrency/transaction_manager.h"
 #include "catalog/catalog.h"
+#include "execution/executor_context.h"
 #include "catalog/schema.h"
 #include "concurrency/transaction.h"
 #include "storage/table/tuple.h"
 
 namespace bustub {
+
+class CheckInProcessObj {
+ public:
+  explicit CheckInProcessObj(VersionUndoLink vul) {
+    vul_ = vul;
+  }
+  auto operator()(std::optional<VersionUndoLink> version_undo_link) const -> bool {
+    if (!version_undo_link.has_value()) {
+      fmt::println(stderr, "CheckInProcess: has not value");
+      return false;
+    }
+    if (vul_ != version_undo_link.value()) {
+      return false;
+    }
+    if (version_undo_link.value().in_progress_) {
+      return false;
+    }
+    return true;
+  }
+
+ private:
+  VersionUndoLink vul_;
+};
 
 /**
  * @param schema tuple schema, child_executor.GetOutputSchema()
@@ -27,6 +52,12 @@ auto GenerateDeleteUndoLog(Transaction *txn) -> UndoLog;
 
 auto UpdateOldUndoLogToDelete(const UndoLog &undoLog) -> UndoLog;
 
+auto CheckInProcess(std::optional<VersionUndoLink> version_undo_link) -> bool;
+
+auto MarkUndoVersionLink(ExecutorContext * exec_ctx, RID rid) -> bool;
+
+void UnmarkUndoVersionLink(ExecutorContext * exec_ctx, RID rid);
+
 /**
  * @return true if conflict, otherwise false
  * **/
@@ -38,7 +69,7 @@ auto ReconstructTuple(const Schema *schema, const Tuple &base_tuple, const Tuple
                       const std::vector<UndoLog> &undo_logs) -> std::optional<Tuple>;
 
 void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const TableInfo *table_info,
-               TableHeap *table_heap);
+               TableHeap *table_heap, int thread=-1);
 
 // Add new functions as needed... You are likely need to define some more functions.
 //
