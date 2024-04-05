@@ -14,13 +14,13 @@
 
 #include <vector>
 
-#include "concurrency/transaction_manager.h"
 #include "common/rid.h"
+#include "concurrency/transaction_manager.h"
+#include "execution/execution_common.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/index_scan_plan.h"
 #include "storage/table/tuple.h"
-#include "execution/execution_common.h"
 
 namespace bustub {
 

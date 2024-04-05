@@ -15,29 +15,33 @@ auto CheckInProcess(std::optional<VersionUndoLink> version_undo_link) -> bool {
     fmt::println(stderr, "CheckInProcess: has not value");
     return false;
   }
-  if (version_undo_link.value().in_progress_) {
-    return false;
-  }
-  return true;
+  return !version_undo_link.value().in_progress_;
 }
 
+auto CheckModifyPrimaryKey(Tuple &old_tuple, Tuple &new_tuple, const IndexInfo *primary_key_index,
+                           const TableInfo *table_info_) -> bool {
+  auto old_key = old_tuple.KeyFromTuple(table_info_->schema_, primary_key_index->key_schema_,
+                                        primary_key_index->index_->GetKeyAttrs());
+  auto new_key = new_tuple.KeyFromTuple(table_info_->schema_, primary_key_index->key_schema_,
+                                        primary_key_index->index_->GetKeyAttrs());
+  return !IsTupleContentEqual(old_key, new_key);
+}
 
 /**
  * 如果标记成功返回true，如果标记失败返回false，如果没有undolink也返回true
  * **/
-auto MarkUndoVersionLink(ExecutorContext * exec_ctx, RID rid) -> bool {
+auto MarkUndoVersionLink(ExecutorContext *exec_ctx, RID rid) -> bool {
   auto vul = VersionUndoLink::FromOptionalUndoLink(exec_ctx->GetTransactionManager()->GetUndoLink(rid));
   if (vul.has_value()) {
     CheckInProcessObj check_obj(vul.value());
     vul->in_progress_ = true;
-    return exec_ctx->GetTransactionManager()->UpdateVersionLink(
-        rid, vul, check_obj);
+    return exec_ctx->GetTransactionManager()->UpdateVersionLink(rid, vul, check_obj);
   }
   fmt::println(stderr, "helplessly mark undo CHECK");
   return true;
 }
 
-void UnmarkUndoVersionLink(ExecutorContext * exec_ctx, RID rid) {
+void UnmarkUndoVersionLink(ExecutorContext *exec_ctx, RID rid) {
   auto vul = VersionUndoLink::FromOptionalUndoLink(exec_ctx->GetTransactionManager()->GetUndoLink(rid));
   if (vul.has_value()) {
     exec_ctx->GetTransactionManager()->UpdateVersionLink(rid, vul, nullptr);
@@ -184,8 +188,8 @@ auto GetSchemaFromModifiedFields(const std::vector<bool> &modified_fields, const
 
 auto ConstructDelUndoLog() -> UndoLog { return {true, {}, {}, {}}; }
 
-void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const TableInfo *table_info,
-               TableHeap *table_heap, int thread) {
+void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const TableInfo *table_info, TableHeap *table_heap,
+               int thread) {
   // always use stderr for printing logs...
   fmt::println(stderr, "debug_hook: {}", info);
 
@@ -200,9 +204,9 @@ void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const Table
   auto it = table_heap->MakeIterator();
   while (!it.IsEnd()) {
     auto ts = it.GetTuple().first.ts_;
-    fmt::println(stderr, "RID={}/{} ts={} tuple={} is_deleted={} thread={}", it.GetRID().GetPageId(), it.GetRID().GetSlotNum(),
+    fmt::println(stderr, "RID={}/{} ts={} tuple={} is_deleted={}", it.GetRID().GetPageId(), it.GetRID().GetSlotNum(),
                  ts > TXN_START_ID ? "txn" + std::to_string(ts - TXN_START_ID) : std::to_string(ts),
-                 it.GetTuple().second.ToString(&table_info->schema_), it.GetTuple().first.is_deleted_, thread);
+                 it.GetTuple().second.ToString(&table_info->schema_), it.GetTuple().first.is_deleted_);
 
     auto undo_link = txn_mgr->GetUndoLink(it.GetRID());
     while (undo_link->IsValid()) {

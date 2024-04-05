@@ -252,6 +252,7 @@ TEST(TxnIndexTest, UpdatePrimaryKeyTest) {  // NOLINT
   TxnMgrDbg("after txn1 insert", bustub->txn_manager_.get(), table_info, table_info->table_.get());
   auto txn2 = BeginTxn(*bustub, "txn2");
   WithTxn(txn2, ExecuteTxn(*bustub, _var, _txn, "UPDATE maintable SET col1 = col1 + 1"));
+  //  TxnMgrDbg("check", bustub->txn_manager_.get(), table_info, table_info->table_.get());
   WithTxn(txn2, QueryShowResult(*bustub, _var, _txn, query, IntResult{{2, 0}, {3, 0}, {4, 0}, {5, 0}}));
   WithTxn(txn2, QueryIndex(*bustub, _var, _txn, query, "col1", std::vector<int>{1, 2, 3, 4, 5},
                            IntResult{{}, {2, 0}, {3, 0}, {4, 0}, {5, 0}}));

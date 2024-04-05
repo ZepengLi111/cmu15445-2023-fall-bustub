@@ -84,7 +84,8 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     *rid = temp_tuple.GetRid();
     std::stringstream ss1;
     ss1 << std::this_thread::get_id();
-//    fmt::println(stderr, "SEQ SCAN tid={} RID={}/{} RID={}/{}", ss1.str(), rid->GetPageId(), rid->GetSlotNum(), temp_tuple.GetRid().GetPageId(), temp_tuple.GetRid().GetPageId());
+    //    fmt::println(stderr, "SEQ SCAN tid={} RID={}/{} RID={}/{}", ss1.str(), rid->GetPageId(), rid->GetSlotNum(),
+    //    temp_tuple.GetRid().GetPageId(), temp_tuple.GetRid().GetPageId());
     return true;
   }
   return false;

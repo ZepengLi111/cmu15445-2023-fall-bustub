@@ -72,5 +72,6 @@ class UpdateExecutor : public AbstractExecutor {
   int count_;
   std::vector<IndexInfo *> index_infos_;
   bool is_finished_ = false;
+  IndexInfo *primary_key_index_ = nullptr;
 };
 }  // namespace bustub

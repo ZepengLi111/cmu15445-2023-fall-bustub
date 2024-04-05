@@ -12,7 +12,7 @@ auto Optimizer::OptimizeSeqScanAsIndexScan(const bustub::AbstractPlanNodeRef &pl
   // The Filter Predicate Pushdown has been enabled for you in optimizer.cpp when forcing starter rule
   std::vector<AbstractPlanNodeRef> children;
   for (const auto &child : plan->GetChildren()) {
-    children.emplace_back(OptimizeMergeFilterScan(child));
+    children.emplace_back(OptimizeSeqScanAsIndexScan(child));
   }
   auto optimized_plan = plan->CloneWithChildren(std::move(children));
   if (optimized_plan->GetType() == PlanType::SeqScan) {

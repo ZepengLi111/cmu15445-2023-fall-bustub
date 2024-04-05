@@ -30,7 +30,7 @@ InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *
 }
 
 void InsertExecutor::Init() {
-  is_finished_= false;
+  is_finished_ = false;
   count_ = 0;
   child_executor_->Init();
 }
@@ -56,8 +56,7 @@ auto InsertExecutor::Next(Tuple *tuple, RID *rid) -> bool {
         if (table_info_->table_->GetTupleMeta(result[0]).is_deleted_) {
           insert_after_delete_rid = result[0];
           insert_after_delete = true;
-        }
-        else {
+        } else {
           exec_ctx_->GetTransaction()->SetTainted();
           throw ExecutionException("insert: tuple already in index");
         }
@@ -85,23 +84,23 @@ auto InsertExecutor::Next(Tuple *tuple, RID *rid) -> bool {
         exec_ctx_->GetTransactionManager()->UpdateUndoLink(temp_rid.value(), UndoLink{}, nullptr);
         exec_ctx_->GetTransaction()->AppendWriteSet(table_info_->oid_, temp_rid.value());
       }
-    }
-    else {
-      bool self_modify = CheckSelfModify(table_info_->table_->GetTupleMeta(insert_after_delete_rid), exec_ctx_->GetTransaction());
+    } else {
+      bool self_modify =
+          CheckSelfModify(table_info_->table_->GetTupleMeta(insert_after_delete_rid), exec_ctx_->GetTransaction());
       if (self_modify) {
-//        fmt::println(stderr, "**************** insert after delete and self modify");
+        //        fmt::println(stderr, "**************** insert after delete and self modify");
         // 自我修改
         auto undo_link = exec_ctx_->GetTransactionManager()->GetUndoLink(insert_after_delete_rid);
         if (undo_link.has_value() && undo_link.value().IsValid()) {
-          auto new_undo_log = UpdateOldUndoLog(exec_ctx_->GetTransaction()->GetUndoLog(undo_link->prev_log_idx_),
-                                               {}, {}, &child_executor_->GetOutputSchema(), true, false);
+          auto new_undo_log = UpdateOldUndoLog(exec_ctx_->GetTransaction()->GetUndoLog(undo_link->prev_log_idx_), {},
+                                               {}, &child_executor_->GetOutputSchema(), true, false);
           exec_ctx_->GetTransaction()->ModifyUndoLog(undo_link->prev_log_idx_, new_undo_log);
         }
-        table_info_->table_->UpdateTupleInPlace({exec_ctx_->GetTransaction()->GetTransactionTempTs(), false}, child_tuple,
-                                                insert_after_delete_rid, nullptr);
-      }
-      else {
-        bool ww_conflict = CheckWWConflict(table_info_->table_->GetTupleMeta(insert_after_delete_rid), exec_ctx_->GetTransaction());
+        table_info_->table_->UpdateTupleInPlace({exec_ctx_->GetTransaction()->GetTransactionTempTs(), false},
+                                                child_tuple, insert_after_delete_rid, nullptr);
+      } else {
+        bool ww_conflict =
+            CheckWWConflict(table_info_->table_->GetTupleMeta(insert_after_delete_rid), exec_ctx_->GetTransaction());
 
         if (ww_conflict) {
           // 写写冲突
@@ -125,9 +124,9 @@ auto InsertExecutor::Next(Tuple *tuple, RID *rid) -> bool {
         BUSTUB_ASSERT(vul.has_value(), "insert: vul is nullopt");
         vul->in_progress_ = true;
         exec_ctx_->GetTransactionManager()->UpdateVersionLink(insert_after_delete_rid, vul);
-//        exec_ctx_->GetTransactionManager()->UpdateUndoLink(insert_after_delete_rid, new_undo_link);
-        table_info_->table_->UpdateTupleInPlace({exec_ctx_->GetTransaction()->GetTransactionTempTs(), false}, child_tuple,
-                                                insert_after_delete_rid, nullptr);
+        //        exec_ctx_->GetTransactionManager()->UpdateUndoLink(insert_after_delete_rid, new_undo_link);
+        table_info_->table_->UpdateTupleInPlace({exec_ctx_->GetTransaction()->GetTransactionTempTs(), false},
+                                                child_tuple, insert_after_delete_rid, nullptr);
         UnmarkUndoVersionLink(exec_ctx_, insert_after_delete_rid);
       }
       // TO DO check

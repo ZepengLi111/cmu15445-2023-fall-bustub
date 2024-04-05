@@ -16,13 +16,13 @@ IndexScanExecutor::IndexScanExecutor(ExecutorContext *exec_ctx, const IndexScanP
     : AbstractExecutor(exec_ctx), plan_(plan) {}
 
 void IndexScanExecutor::Init() {
-  is_finished_= false;
+  is_finished_ = false;
   h_table_ = dynamic_cast<HashTableIndexForTwoIntegerColumn *>(
       exec_ctx_->GetCatalog()->GetIndex(plan_->index_oid_)->index_.get());
 }
 
 auto IndexScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
-  fmt::println(stderr, "INDEX SCAN RID={}/{}", rid->GetPageId(), rid->GetSlotNum());
+  //  fmt::println(stderr, "INDEX SCAN RID={}/{}", rid->GetPageId(), rid->GetSlotNum());
   if (is_finished_) {
     return false;
   }
